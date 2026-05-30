@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint · Types · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        # next build imports route modules (e.g. lib/crypto.ts validates
+        # ENCRYPTION_KEY at import), so the build needs non-empty values.
+        # These are dummies for CI only — real values live in Render.
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+          NEXT_PUBLIC_APP_URL: https://example.com
+          SUPABASE_SERVICE_ROLE_KEY: ci-dummy-service-role
+          ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+          GOOGLE_CLIENT_ID: ci-dummy
+          GOOGLE_CLIENT_SECRET: ci-dummy
+          GOOGLE_REDIRECT_URI: https://example.com/api/auth/google/callback
+          SARVAM_API_KEY: ci-dummy
+          SARVAM_BASE_URL: https://api.sarvam.ai/v1
+
+  deploy:
+    name: Deploy to Render
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          if [ -z "${RENDER_DEPLOY_HOOK}" ]; then
+            echo "RENDER_DEPLOY_HOOK secret not set — skipping deploy."
+            exit 1
+          fi
+          curl -fsS -X POST "${RENDER_DEPLOY_HOOK}"
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}

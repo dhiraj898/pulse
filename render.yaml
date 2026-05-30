@@ -1,0 +1,72 @@
+# Render Blueprint — deploys Pulse as a Node web service.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Secrets (sync: false) are NOT stored here — set them once in the Render
+# dashboard (Environment tab) or a linked Environment Group. autoDeploy is
+# off: GitHub Actions triggers deploys via a Deploy Hook after CI passes.
+services:
+  - type: web
+    name: pulse
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: false
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # --- Public (safe in client bundle, still set per-environment) ---
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      # --- Server secrets ---
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FIREFLIES_API_KEY
+        sync: false
+      - key: FIREFLIES_CLIENT_ID
+        sync: false
+      - key: FIREFLIES_CLIENT_SECRET
+        sync: false
+      - key: FIREFLIES_REDIRECT_URI
+        sync: false
+      - key: FIREFLIES_WEBHOOK_SECRET
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: SARVAM_BASE_URL
+        sync: false
+      - key: SARVAM_MODEL_CLASSIFY
+        sync: false
+      - key: SARVAM_MODEL_REASONING
+        sync: false
+      - key: SARVAM_BUDGET_INR_PER_USER_PER_MONTH
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: CRON_SECRET
+        sync: false
