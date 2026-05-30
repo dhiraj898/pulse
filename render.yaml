@@ -8,7 +8,9 @@ services:
   - type: web
     name: pulse
     runtime: node
-    plan: starter
+    # free tier: spins down after ~15 min idle (cold start on next request).
+    # Fine for testing; bump to "starter" for always-on + reliable hourly cron.
+    plan: free
     region: oregon
     branch: main
     autoDeploy: false
