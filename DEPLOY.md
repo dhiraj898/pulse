@@ -9,34 +9,54 @@ One deploy unit. No separate frontend/backend servers (see rationale: thin API g
 
 ## Branch strategy
 - `main` = production. Protected: no direct pushes, merge via PR.
-- Feature branches → PR → CI must pass → merge to `main` → auto-deploy.
+- Work on **feature branches** → PR into `main`. No long-lived dev branch.
 
 ## CI/CD pipeline (`.github/workflows/ci.yml`)
-1. **On PR and push to `main`** — run `check`: lint → type-check → test → build (with CI dummy env).
-2. **On push to `main` only** — `deploy`: after `check` passes, POST the Render Deploy Hook.
+1. **On every PR (and feature-branch push)** — run `check`: lint → type-check → test → build.
+   - Render creates a **per-PR preview deploy** (temporary URL, torn down on merge/close).
+2. **On merge to `main`** (a push event) — `check` runs again, then `deploy` POSTs the
+   Render Deploy Hook → production builds & releases automatically.
 
-Render `autoDeploy` is **off** so deploys are gated on green CI, not raw pushes.
+Render `autoDeploy` is **off** for production, so prod only deploys via the
+deploy hook after CI is green. Previews are the only auto-deploys.
 
 ```
-PR ──> CI (lint/types/test/build) ──> review ──> merge to main
-                                                     │
-                              push to main ──> CI ──> Deploy hook ──> Render build+release
+feature branch ─push→ CI (lint/types/test/build) ─┐
+                                                   ├─ Render PR preview (temp URL)
+open PR ───────────────────────────────────────────┘
+   │  review + CI green (required check)
+   ▼
+merge to main ─push→ CI ──(green)──► deploy job ──► Render Deploy Hook ──► prod release
 ```
+
+**Gate to enforce:** make `check` a *required status check* in branch protection
+(below) so a red PR cannot be merged. That is what makes "deploy to prod only
+after a proper deploy/validation" real — CI + preview must pass before merge,
+and merge is what triggers prod.
 
 ## One-time setup
 
-### 1. GitHub
-```bash
-gh repo create <org>/pulse --private --source=. --push
-# or add a remote manually:
-# git remote add origin git@github.com:<org>/pulse.git && git push -u origin main
-```
-Add branch protection on `main`: require the `check` job + PR review.
+### 1. GitHub — branch protection (makes the gate real)
+Repo → Settings → Branches → Add rule for `main`:
+- ✅ Require a pull request before merging
+- ✅ Require status checks to pass → select **`Lint · Types · Test · Build`** (the `check` job)
+- ✅ Require branches to be up to date before merging
+- (optional) ✅ Require approvals
+
+Without this, someone can push straight to `main` or merge a red PR. With it,
+prod can only be reached through a green PR.
 
 ### 2. Render
 - New → **Blueprint**, point at this repo (`render.yaml` is detected).
+- Confirm **Pull Request Previews** is enabled (the blueprint sets
+  `previews.generation: automatic`).
 - Set all `sync: false` env vars in the Render dashboard (values from your `.env`; see `.env.example`).
 - Settings → **Deploy Hook**: copy the URL.
+
+> Preview deploys inherit env vars from the main service. Preview-specific
+> values (e.g. a distinct `NEXT_PUBLIC_APP_URL`) can be overridden per-PR, but
+> previews share the same Supabase project/DB — be careful with writes from a
+> preview against production data.
 
 ### 3. GitHub secret
 - Repo → Settings → Secrets → Actions → add `RENDER_DEPLOY_HOOK` = the Render hook URL.

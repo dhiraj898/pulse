@@ -14,6 +14,11 @@ services:
     region: oregon
     branch: main
     autoDeploy: false
+    # Per-PR preview deploys: Render spins up a temporary instance for each
+    # pull request and tears it down on close/merge. Production (this service)
+    # only deploys via the GitHub Actions deploy hook after CI passes on main.
+    previews:
+      generation: automatic
     buildCommand: npm ci && npm run build
     startCommand: npm run start
     healthCheckPath: /login
