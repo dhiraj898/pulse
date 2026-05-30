@@ -24,7 +24,7 @@ services:
     healthCheckPath: /login
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: "22.22.3"
       - key: NODE_ENV
         value: production
       # --- Public (safe in client bundle, still set per-environment) ---
