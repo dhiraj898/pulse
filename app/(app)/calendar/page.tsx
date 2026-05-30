@@ -49,6 +49,8 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
+    // Fetch on mount; setState happens after await, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadEvents();
   }, [loadEvents]);
 

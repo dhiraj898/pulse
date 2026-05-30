@@ -25,7 +25,7 @@ describe('crypto', () => {
   it('throws with invalid key', async () => {
     process.env.ENCRYPTION_KEY = 'tooshort'
     const { encrypt } = await import('@/lib/crypto')
-    await expect(encrypt('test')).rejects.toThrow('ENCRYPTION_KEY')
+    expect(() => encrypt('test')).toThrow('ENCRYPTION_KEY')
     process.env.ENCRYPTION_KEY = 'a'.repeat(64)
   })
 })

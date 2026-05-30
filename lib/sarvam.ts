@@ -1,4 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+type Db = SupabaseClient<Database>;
+
+interface TaskClassification {
+  title: string;
+  description: string;
+  effort?: "S" | "M" | "L";
+  dueDate?: string;
+  confidence: number;
+  reasoning: string;
+}
 
 const sarvamApiKey = process.env.SARVAM_API_KEY;
 const sarvamBaseUrl = process.env.SARVAM_BASE_URL || "https://api.sarvam.ai/v1";
@@ -16,15 +29,8 @@ const client = new Anthropic({
 export async function classifyTask(
   emailSubject: string,
   emailBody: string,
-  userId: string
-): Promise<{
-  title: string;
-  description: string;
-  effort?: "S" | "M" | "L";
-  dueDate?: string;
-  confidence: number;
-  reasoning: string;
-}> {
+  _userId?: string
+): Promise<TaskClassification> {
   const tools: Anthropic.Tool[] = [
     {
       name: "extract_task",
@@ -70,10 +76,10 @@ export async function classifyTask(
   });
 
   // Find tool use in response
-  let taskData = {
+  let taskData: TaskClassification = {
     title: "Unprocessed email",
     description: emailBody.slice(0, 200),
-    effort: "M" as const,
+    effort: "M",
     confidence: 0.3,
     reasoning: "Failed to classify",
   };
@@ -153,21 +159,9 @@ export async function reasonAboutTask(
 }
 
 // Generate embeddings for RAG via similarity search
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await client.messages.create({
-    model: "sarvam-m",
-    max_tokens: 100,
-    messages: [
-      {
-        role: "user",
-        content: `Generate a semantic embedding for: "${text}"`,
-      },
-    ],
-  });
-
-  // Sarvam embeddings are 768-dimensional vectors
-  // For now, return placeholder - actual implementation depends on Sarvam embedding endpoint
-  // This should call a dedicated embedding model endpoint when available
+export async function generateEmbedding(_text: string): Promise<number[]> {
+  // Placeholder: Sarvam embeddings are 768-dimensional. Wire this to a
+  // dedicated embedding endpoint when available; returns zeros for now.
   return new Array(768).fill(0);
 }
 
@@ -193,7 +187,7 @@ export function calculateCost(
 export async function checkBudgetAvailable(
   userId: string,
   estimatedCost: number,
-  db: any
+  db: Db
 ): Promise<{ available: boolean; remaining: number; monthlyBudget: number }> {
   const monthlyBudget = Number(process.env.SARVAM_BUDGET_INR_PER_USER_PER_MONTH || 500);
 
@@ -231,7 +225,7 @@ export async function recordAiCall(
   model: string,
   inputTokens: number,
   outputTokens: number,
-  db: any
+  db: Db
 ): Promise<void> {
   const inrCost = calculateCost(inputTokens, outputTokens);
 
@@ -245,7 +239,7 @@ export async function recordAiCall(
   });
 
   // Update user budget
-  const { data: increment } = await db.rpc("increment_ai_budget", {
+  await db.rpc("increment_ai_budget", {
     user_id_param: userId,
     amount: inrCost,
   });
